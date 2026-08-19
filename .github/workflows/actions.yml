@@ -50,12 +50,13 @@ jobs:
 
       - name: Run Tests
         run: |
+          chmod +x ./scripts/test.sh
           DOMAIN=backend sh ./scripts/test.sh
 
   deploy-staging:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
     needs: tests
+    runs-on: ubuntu-latest
 
     steps:
       - name: Check out code
@@ -79,7 +80,7 @@ jobs:
           FRONTEND_ENV=staging \
           sh ./scripts/build-push.sh
 
-      # Uncomment only when staging deployment is ready
+      # Deployment disabled for now
       # - name: Deploy Staging
       #   run: |
       #     DOMAIN=stag.localhost.tiangolo.com \
@@ -88,11 +89,10 @@ jobs:
       #     TAG=staging \
       #     sh ./scripts/deploy.sh
 
-
   deploy-prod:
     if: github.ref == 'refs/heads/production'
-    runs-on: ubuntu-latest
     needs: tests
+    runs-on: ubuntu-latest
 
     steps:
       - name: Check out code
@@ -116,7 +116,7 @@ jobs:
           FRONTEND_ENV=production \
           sh ./scripts/build-push.sh
 
-      # Uncomment only when production deployment is ready
+      # Deployment disabled for now
       # - name: Deploy Production
       #   run: |
       #     DOMAIN=localhost.tiangolo.com \
