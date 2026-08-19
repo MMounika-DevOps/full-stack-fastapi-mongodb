@@ -1,4 +1,4 @@
-#! /usr/bin/env sh
+#!/usr/bin/env sh
 
 # Exit in case of error
 set -e
@@ -9,8 +9,8 @@ TRAEFIK_PUBLIC_NETWORK_IS_EXTERNAL=false \
 TRAEFIK_PUBLIC_NETWORK=traefik-public \
 INSTALL_DEV=true \
 docker compose \
--f docker-compose.yml \
-config > docker-stack.yml
+  -f docker-compose.yml \
+  config > docker-stack.yml
 
 docker compose -f docker-stack.yml build
 
