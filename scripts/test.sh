@@ -1,19 +1,108 @@
-#! /usr/bin/env sh
+name: build and deploy template
 
-# Exit in case of error
-set -e
+on:
+  push:
+    branches:
+      - main
+      - production
 
-DOMAIN=backend \
-SMTP_HOST="" \
-TRAEFIK_PUBLIC_NETWORK_IS_EXTERNAL=false \
-TRAEFIK_PUBLIC_NETWORK=traefik-public \
-INSTALL_DEV=true \
-docker compose \
--f docker-compose.yml \
-config > docker-stack.yml
+env:
+  TRAEFIK_PUBLIC_NETWORK: traefik-public
+  STACK_NAME: localhost-tiangolo-com
+  DOCKER_IMAGE_CELERYWORKER: celeryworker
+  TRAEFIK_TAG: localhost.tiangolo.com
+  TRAEFIK_PUBLIC_TAG: traefik-public
+  DOCKER_IMAGE_BACKEND: backend
+  DOCKER_IMAGE_FRONTEND: frontend
+  PROJECT_NAME: Full Stack FastAPI MongoDB
+  DOMAIN: localhost
+  SMTP_HOST:
 
-docker compose -f docker-stack.yml build
-docker compose -f docker-stack.yml down -v --remove-orphans # Remove possibly previous broken stacks left hanging after an error
-docker compose -f docker-stack.yml up -d
-docker compose -f docker-stack.yml exec -T backend bash /app/tests-start.sh "$@"
-docker compose -f docker-stack.yml down -v --remove-orphans
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Create test environment file
+        run: |
+          touch .env
+
+      - name: Run Tests
+        run: sh ./scripts/test.sh
+
+  deploy-staging:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Install docker-auto-labels
+        run: pip install docker-auto-labels
+
+      - name: Build Staging
+        run: |
+          DOMAIN=stag.localhost.tiangolo.com \
+          TRAEFIK_TAG=stag.localhost.tiangolo.com \
+          STACK_NAME=stag-localhost-tiangolo-com \
+          TAG=staging \
+          FRONTEND_ENV=staging \
+          sh ./scripts/build-push.sh
+
+      # Uncomment to attempt deploying, need to validate functionality
+      # - name: Deploy Staging
+      #   run: |
+      #     DOMAIN=stag.localhost.tiangolo.com \
+      #     TRAEFIK_TAG=stag.localhost.tiangolo.com \
+      #     STACK_NAME=stag-localhost-tiangolo-com \
+      #     TAG=staging \
+      #     sh ./scripts/deploy.sh
+
+    needs: tests
+
+  deploy-prod:
+    if: github.ref == 'refs/heads/production'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Install docker-auto-labels
+        run: pip install docker-auto-labels
+
+      - name: Build Production
+        run: |
+          DOMAIN=localhost.tiangolo.com \
+          TRAEFIK_TAG=localhost.tiangolo.com \
+          STACK_NAME=localhost-tiangolo-com \
+          TAG=prod \
+          FRONTEND_ENV=production \
+          sh ./scripts/build-push.sh
+
+      # Uncomment to attempt deploying, need to validate functionality
+      # - name: Deploy Production
+      #   run: |
+      #     DOMAIN=localhost.tiangolo.com \
+      #     TRAEFIK_TAG=localhost.tiangolo.com \
+      #     STACK_NAME=localhost-tiangolo-com \
+      #     TAG=prod \
+      #     sh ./scripts/deploy.sh
+
+    needs: tests
