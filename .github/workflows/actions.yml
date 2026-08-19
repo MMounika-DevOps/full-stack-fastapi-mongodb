@@ -1,4 +1,5 @@
 name: build and deploy template
+
 on:
   push:
     branches:
@@ -18,11 +19,23 @@ env:
   SMTP_HOST:
 
 jobs:
+
   tests:
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cat > .env <<'EOF'
+          DOMAIN=backend
+          SMTP_HOST=
+          TRAEFIK_PUBLIC_NETWORK_IS_EXTERNAL=false
+          TRAEFIK_PUBLIC_NETWORK=traefik-public
+          INSTALL_DEV=true
+          EOF
 
       - name: Run Tests
         run: sh ./scripts/test.sh
@@ -30,10 +43,10 @@ jobs:
   deploy-staging:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out code
         uses: actions/checkout@v4
-
 
       - name: Log in to Docker Registry
         uses: docker/login-action@v3
@@ -41,11 +54,10 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-
       - name: Install docker-auto-labels
         run: pip install docker-auto-labels
 
-      - name: Build Staging 
+      - name: Build Staging
         run: |
           DOMAIN=stag.localhost.tiangolo.com \
           TRAEFIK_TAG=stag.localhost.tiangolo.com \
@@ -54,7 +66,7 @@ jobs:
           FRONTEND_ENV=staging \
           sh ./scripts/build-push.sh
 
-      # Uncomment to attempt deploying, need to valiate functionality
+      # Uncomment to attempt deploying, need to validate functionality
       # - name: Deploy Staging
       #   run: |
       #     DOMAIN=stag.localhost.tiangolo.com \
@@ -62,11 +74,13 @@ jobs:
       #     STACK_NAME=stag-localhost-tiangolo-com \
       #     TAG=staging \
       #     sh ./scripts/deploy.sh
+
     needs: tests
 
   deploy-prod:
     if: github.ref == 'refs/heads/production'
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -79,7 +93,7 @@ jobs:
 
       - name: Install docker-auto-labels
         run: pip install docker-auto-labels
-      
+
       - name: Build Production
         run: |
           DOMAIN=localhost.tiangolo.com \
@@ -89,7 +103,7 @@ jobs:
           FRONTEND_ENV=production \
           sh ./scripts/build-push.sh
 
-      # Uncomment to attempt deploying, need to valiate functionality
+      # Uncomment to attempt deploying, need to validate functionality
       # - name: Deploy Production
       #   run: |
       #     DOMAIN=localhost.tiangolo.com \
@@ -97,9 +111,5 @@ jobs:
       #     STACK_NAME=localhost-tiangolo-com \
       #     TAG=prod \
       #     sh ./scripts/deploy.sh
-    needs: tests
-   
 
-  
-  
-    
+    needs: tests
