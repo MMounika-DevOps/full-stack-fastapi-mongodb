@@ -20,6 +20,9 @@ env:
 
 jobs:
 
+  # ============================================================
+  # TESTS
+  # ============================================================
   tests:
     runs-on: ubuntu-latest
 
@@ -39,7 +42,7 @@ jobs:
           FIRST_SUPERUSER=admin@example.com
           FIRST_SUPERUSER_PASSWORD=testpassword
           USERS_OPEN_REGISTRATION=False
-          MONGO_DATABASE_URI=mongodb://mongodb:27017
+          MONGO_DATABASE_URI=mongodb://mongo:27017
           MONGO_DATABASE=app
           SMTP_HOST=
           SMTP_USER=
@@ -48,19 +51,59 @@ jobs:
           SMTP_TLS=False
           EOF
 
+      - name: Verify test environment
+        run: |
+          echo ".env created successfully"
+          test -f .env
+          echo ".env file exists"
+
       - name: Run Tests
         run: |
           chmod +x ./scripts/test.sh
           DOMAIN=backend sh ./scripts/test.sh
 
+
+  # ============================================================
+  # STAGING
+  # ============================================================
   deploy-staging:
     if: github.ref == 'refs/heads/main'
-    needs: tests
     runs-on: ubuntu-latest
+    needs: tests
 
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+
+      - name: Create staging environment
+        run: |
+          cat > .env <<'EOF'
+          DOMAIN=stag.localhost.tiangolo.com
+          ENVIRONMENT=staging
+          PROJECT_NAME="Full Stack FastAPI MongoDB"
+          STACK_NAME=stag-localhost-tiangolo-com
+          SECRET_KEY=staging-test-secret-key
+          BACKEND_CORS_ORIGINS=https://stag.localhost.tiangolo.com
+          FIRST_SUPERUSER=admin@example.com
+          FIRST_SUPERUSER_PASSWORD=testpassword
+          USERS_OPEN_REGISTRATION=False
+          MONGO_DATABASE_URI=mongodb://mongo:27017
+          MONGO_DATABASE=app
+          SMTP_HOST=
+          SMTP_USER=
+          SMTP_PASSWORD=
+          EMAILS_FROM_EMAIL=info@example.com
+          SMTP_TLS=False
+          EOF
+
+      - name: Verify staging environment
+        run: |
+          echo ".env created successfully for staging"
+          test -f .env
+          echo "Checking important environment variables..."
+          grep "^DOMAIN=" .env
+          grep "^STACK_NAME=" .env
+          echo "Staging environment ready"
 
       - name: Log in to Docker Registry
         uses: docker/login-action@v3
@@ -69,7 +112,8 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Install docker-auto-labels
-        run: pip install docker-auto-labels
+        run: |
+          pip install docker-auto-labels
 
       - name: Build Staging
         run: |
@@ -80,7 +124,8 @@ jobs:
           FRONTEND_ENV=staging \
           sh ./scripts/build-push.sh
 
-      # Deployment disabled for now
+      # Uncomment only when staging deployment server is ready
+      #
       # - name: Deploy Staging
       #   run: |
       #     DOMAIN=stag.localhost.tiangolo.com \
@@ -89,14 +134,48 @@ jobs:
       #     TAG=staging \
       #     sh ./scripts/deploy.sh
 
+
+  # ============================================================
+  # PRODUCTION
+  # ============================================================
   deploy-prod:
     if: github.ref == 'refs/heads/production'
-    needs: tests
     runs-on: ubuntu-latest
+    needs: tests
 
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+
+      - name: Create production environment
+        run: |
+          cat > .env <<'EOF'
+          DOMAIN=localhost.tiangolo.com
+          ENVIRONMENT=production
+          PROJECT_NAME="Full Stack FastAPI MongoDB"
+          STACK_NAME=localhost-tiangolo-com
+          SECRET_KEY=production-test-secret-key
+          BACKEND_CORS_ORIGINS=https://localhost.tiangolo.com
+          FIRST_SUPERUSER=admin@example.com
+          FIRST_SUPERUSER_PASSWORD=testpassword
+          USERS_OPEN_REGISTRATION=False
+          MONGO_DATABASE_URI=mongodb://mongo:27017
+          MONGO_DATABASE=app
+          SMTP_HOST=
+          SMTP_USER=
+          SMTP_PASSWORD=
+          EMAILS_FROM_EMAIL=info@example.com
+          SMTP_TLS=False
+          EOF
+
+      - name: Verify production environment
+        run: |
+          echo ".env created successfully for production"
+          test -f .env
+          echo "Checking important environment variables..."
+          grep "^DOMAIN=" .env
+          grep "^STACK_NAME=" .env
+          echo "Production environment ready"
 
       - name: Log in to Docker Registry
         uses: docker/login-action@v3
@@ -105,7 +184,8 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Install docker-auto-labels
-        run: pip install docker-auto-labels
+        run: |
+          pip install docker-auto-labels
 
       - name: Build Production
         run: |
@@ -116,7 +196,8 @@ jobs:
           FRONTEND_ENV=production \
           sh ./scripts/build-push.sh
 
-      # Deployment disabled for now
+      # Uncomment only when production deployment server is ready
+      #
       # - name: Deploy Production
       #   run: |
       #     DOMAIN=localhost.tiangolo.com \
